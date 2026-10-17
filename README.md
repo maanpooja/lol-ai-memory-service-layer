@@ -27,19 +27,72 @@ memory private. This project is that memory layer, plus a maintenance copilot th
 
 ## How it works
 
+### Architecture
+
+```mermaid
+flowchart TB
+    tech["Technician / evaluator<br/>(browser)"]
+    auth0["Auth0<br/>sign-in, issues access token"]
+
+    subgraph run1["Cloud Run: shiftmate"]
+        web["Chat page + /api/chat<br/>verifies token, per-user rate limit"]
+        agent["ADK agent 'ShiftMate'<br/>Gemini 3.5 Flash"]
+    end
+
+    subgraph run2["Cloud Run: memory-mcp (MCP server)"]
+        authz["OIDC token check (JWKS)<br/>user = hash(issuer, sub)"]
+        tools["5 MCP tools<br/>add / search / update / delete / list"]
+        policy["Policy in code<br/>blocked topics, authority claims,<br/>confidence, TTL, de-duplication"]
+    end
+
+    dlp["Cloud DLP<br/>redact PII before any model call"]
+    gemini["Gemini 3.5 Flash on Vertex AI<br/>extract, decide ADD/UPDATE/NONE,<br/>pick relevant memories"]
+    store[("Vertex AI Search<br/>memory store, filtered by tenant AND user")]
+    logs["Cloud Logging"]
+    bq[("BigQuery<br/>audit: ids and counters, no content")]
+    mon["Cloud Monitoring<br/>uptime checks + email alerts"]
+
+    tech -- "sign in" --> auth0
+    auth0 -- "access token" --> tech
+    tech -- "message + token" --> web
+    web --> agent
+    agent -- "MCP over HTTPS, same user's token" --> authz
+    authz --> tools
+    tools --> dlp
+    tools --> gemini
+    tools --> policy
+    tools --> store
+    tools -- "audit line" --> logs
+    logs -- "log sink" --> bq
+    mon -. "/health every 5 min" .-> web
+    mon -. "/health every 5 min" .-> authz
 ```
- Browser (Auth0 sign-in)
-   |  user's access token
-   v
- ShiftMate web app  -- Cloud Run: chat page + Google ADK agent (Gemini 3.5 Flash)
-   |  MCP over HTTPS, same user's token
-   v
- memory-mcp server  -- Cloud Run: 5 MCP tools, token verified (OIDC/JWKS), user = hash(issuer, sub)
-   |-- Cloud DLP: redact emails, phones, Aadhaar/PAN, cards, credentials BEFORE any model call
-   |-- Gemini 3.5 Flash: extract facts, decide ADD / UPDATE / NONE, pick relevant memories
-   |-- Policy in code: block health/HR/pay/legal..., reject authority claims, TTL per category
-   |-- Vertex AI Search: memory store, every query filtered by tenant AND user
-   '-- Audit lines (ids and counters only) -> Cloud Logging -> BigQuery
+
+### One message, step by step (`add_memory`)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant A as ShiftMate agent
+    participant M as memory-mcp
+    participant D as Cloud DLP
+    participant G as Gemini
+    participant P as Policy (code)
+    participant S as Vertex AI Search
+    A->>M: add_memory("I hurt my wrist, I'm on light duty. I look after CNC line 3.") + user token
+    M->>M: verify token, resolve tenant + user
+    M->>D: redact the raw text
+    D-->>M: text with emails/phones/IDs replaced by [TOKENS]
+    M->>G: extract candidate facts (redacted text only)
+    G-->>M: 3 candidates with sensitivity labels
+    M->>P: judge each candidate
+    P-->>M: keep "Looks after CNC line 3", block injury and light duty (health)
+    M->>D: second pass on kept facts
+    M->>S: this user's existing memories
+    M->>G: ADD / UPDATE / NONE? (short refs, never real ids)
+    M->>S: write (fails closed if DLP or Gemini failed)
+    M-->>A: saved 1, sensitive_not_saved 2 (blocked text never returned)
+    M->>M: audit line to stderr: counters only, no content
 ```
 
 | Google Cloud service | Used for |
