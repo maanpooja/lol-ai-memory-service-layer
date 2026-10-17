@@ -1,0 +1,40 @@
+[project]
+name = "memory-mcp"
+version = "0.1.0"
+description = "Long-term, privacy-aware memory for AI agents, stored in Vertex AI Search."
+requires-python = ">=3.12"
+dependencies = [
+    "google-cloud-discoveryengine==0.20.5",
+    "google-cloud-dlp==3.40.0",
+    "google-genai==2.31.0",
+    "mcp==2.3.0",
+    "pyjwt[crypto]==2.15.1",
+    "python-dotenv==1.2.4",
+]
+
+[project.scripts]
+memory-mcp = "memory_mcp.server:main"
+
+[dependency-groups]
+agent = [
+    "fastapi==0.141.1",
+    "google-adk==2.12.0",
+]
+dev = [
+    "pytest==9.1.1",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/memory_mcp"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.uv]
+# Rebuild the installed package when source files change (needed for --no-editable).
+cache-keys = [{ file = "pyproject.toml" }, { file = "src/**/*.py" }]

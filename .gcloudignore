@@ -1,0 +1,17 @@
+# Never ship local secrets or environments in the image.
+.env
+.env.*
+.venv/
+.git/
+__pycache__/
+*.pyc
+.pytest_cache/
+tests/
+scripts/
+agent/
+deploy/
+/README.md
+/CLAUDE.md
+.ruff_cache/
+demo_agent/
+.adk/

@@ -1,0 +1,10 @@
+title: memory-mcp runtime
+description: Least privilege for the memory-mcp Cloud Run service. Discovery Engine document CRUD and search, Gemini generateContent.
+stage: GA
+includedPermissions:
+- discoveryengine.documents.create
+- discoveryengine.documents.get
+- discoveryengine.documents.update
+- discoveryengine.documents.delete
+- discoveryengine.servingConfigs.search
+- aiplatform.endpoints.predict
