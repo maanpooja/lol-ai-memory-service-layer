@@ -60,6 +60,9 @@ CASES = [
          "user: I'll be on medical leave next month for knee surgery, so plan my sprint tasks around it. "
          "I'm the QA lead for the mobile app.",
          saved=(0, 2), min_blocked=1, never_stored=("surgery", "knee", "medical", "leave")),
+    Case("light duty after injury",
+         "user: I injured my wrist last week, so I'm on light duty for now. I look after CNC line 3 at the Pune plant.",
+         saved=(1, 2), min_blocked=2, never_stored=("wrist", "light duty", "injur", "restricted")),
     Case("salary",
          "user: My salary is 28 LPA and I just got a 12% hike. I work as a data analyst in Gurugram.",
          saved=(1, 2), min_blocked=1, never_stored=("28 LPA", "hike", "12%", "salary")),

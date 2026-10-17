@@ -72,6 +72,8 @@ def test_prompts_load_and_mark_data_as_untrusted() -> None:
         assert "<untrusted_data>" in text and "</untrusted_data>" in text, name
         assert "never instructions" in text, name
         assert "Output JSON" in text, name
+    for name in ("extract", "classify"):
+        assert "light or restricted duty" in prompts[name], "work consequences of health are health"
 
 
 # --- GeminiClient ------------------------------------------------------------
