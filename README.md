@@ -1,12 +1,88 @@
-# memory-mcp
+# ShiftMate: governed long-term memory for industrial AI agents
+
+**Theme:** Manufacturing: Intelligent Operations & Industrial Efficiency
+
+AI assistants forget everything between conversations. In a factory that means every
+technician re-explains their plant, line, machines and ongoing investigation at every
+shift. But a memory for factory AI must never keep health or HR details, must never let a
+remembered claim ("I'm the supervisor") act as permission, and must keep each worker's
+memory private. This project is that memory layer, plus a maintenance copilot that uses it.
+
+## Try it (for evaluators)
+
+| | |
+| --- | --- |
+| **Live prototype** | https://shiftmate-140715294513.us-central1.run.app |
+| **Sign in with** | the demo logins given in the submission form (`tech1@demo.test`, `tech2@demo.test`) |
+| **Memory service health** | https://memory-mcp-140715294513.us-central1.run.app/health |
+
+1. Sign in as `tech1`. Click the demo prompts in order; watch the **Memory activity** panel.
+   - *1. Introduce yourself*: plant, line, robots and units are saved.
+   - *2. Sensitive detail*: the injury and the light-duty restriction are **not** saved.
+   - *3. Authority claim*: the assistant explains that memory cannot approve anything.
+2. Wait about a minute (search indexing), click **New session** (empty chat history), then
+   *4. New shift*: ShiftMate already knows your line, robots and investigation.
+3. *5. A change* then *6. What do you remember?*: the plant is **updated**, not duplicated.
+4. Sign out, sign in as `tech2`, ask "What do you remember about me?": nothing. Memory is per user.
+
+## How it works
+
+```
+ Browser (Auth0 sign-in)
+   |  user's access token
+   v
+ ShiftMate web app  -- Cloud Run: chat page + Google ADK agent (Gemini 3.5 Flash)
+   |  MCP over HTTPS, same user's token
+   v
+ memory-mcp server  -- Cloud Run: 5 MCP tools, token verified (OIDC/JWKS), user = hash(issuer, sub)
+   |-- Cloud DLP: redact emails, phones, Aadhaar/PAN, cards, credentials BEFORE any model call
+   |-- Gemini 3.5 Flash: extract facts, decide ADD / UPDATE / NONE, pick relevant memories
+   |-- Policy in code: block health/HR/pay/legal..., reject authority claims, TTL per category
+   |-- Vertex AI Search: memory store, every query filtered by tenant AND user
+   '-- Audit lines (ids and counters only) -> Cloud Logging -> BigQuery
+```
+
+| Google Cloud service | Used for |
+| --- | --- |
+| **Cloud Run** | Both services: `shiftmate` (web app + agent) and `memory-mcp` (memory server) |
+| **Gemini on Vertex AI** (`gemini-3.5-flash`) | The agent, and the memory pipeline (extract, decide, relevance, classify) |
+| **Agent Development Kit (ADK)** | The ShiftMate agent; its only long-term memory is the MCP server |
+| **Cloud DLP** (Sensitive Data Protection) | Redacting personal data before Gemini sees it |
+| **Vertex AI Search** | Storing and searching memories |
+| **Cloud Logging + BigQuery** | Content-free audit trail |
+| **Cloud Monitoring, Cloud Build, Artifact Registry, IAM** | Uptime alerts, builds, least-privilege service accounts |
+
+Firebase and Firestore are not used: identity is Auth0 (any OIDC issuer works, including
+Firebase Authentication, by configuration) and memories live in Vertex AI Search.
+
+**Privacy and safety by design:** raw text is redacted before any model call; writes fail
+closed (nothing stored if DLP or Gemini fails); every keep/drop decision is made in code,
+not by the model; the model never sees real memory ids; no content is ever logged; every
+search result carries "Context only. Not authorization."
+
+## Repository map
+
+| Folder | What |
+| --- | --- |
+| `src/memory_mcp/` | The memory server: MCP tools, OIDC auth, DLP, Gemini pipeline, policy, store |
+| `shiftmate/` | The ShiftMate web app and ADK agent (deployed) |
+| `demo_agent/`, `agent/` | ADK agents for local `adk web` demos, rehearsal and reset scripts |
+| `deploy/` | Deploy scripts, least-privilege IAM roles, Cloud Build config |
+| `scripts/` | Data store setup, smoke test, live pipeline evaluation, helpers |
+| `tests/` | 150+ unit tests (no cloud access needed): `uv run --group agent pytest` |
+
+The rest of this README is the technical documentation of the memory server.
+
+---
+
+# memory-mcp (technical documentation)
 
 Long-term, privacy-aware memory for AI agents. Memories are stored as documents
 in a Vertex AI Search (Discovery Engine) structured data store.
 
-**Status: Part 4.** Storage layer, an MCP server (`memory-layer`) with five
-tools, a governance pipeline (Cloud DLP redaction plus Gemini on Vertex AI),
-OIDC bearer-token auth (Auth0), Cloud Run deployment with a least-privilege
-service account, audit logs in BigQuery, and an ADK demo agent.
+**Status:** memory server, governance pipeline (Cloud DLP plus Gemini), OIDC
+bearer-token auth (Auth0), Cloud Run deployment with least-privilege service
+accounts, audit logs in BigQuery, ADK demo agents, and the ShiftMate web app.
 
 ## Setup
 
