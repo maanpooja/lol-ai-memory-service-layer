@@ -1,5 +1,5 @@
-# ShiftMate web app image. Built from the repo root:
-#   gcloud builds submit --config deploy/shiftmate-cloudbuild.yaml .
+# Recall demo web app image. Built from the repo root:
+#   gcloud builds submit --config deploy/recall-demo-cloudbuild.yaml .
 FROM python:3.12-slim
 
 COPY --from=ghcr.io/astral-sh/uv:0.13.0 /uv /usr/local/bin/uv
@@ -14,10 +14,10 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --group agent --no-install-project --no-editable
 COPY src ./src
 RUN uv sync --frozen --no-dev --group agent --no-editable
-COPY shiftmate ./shiftmate
+COPY recall_demo ./recall_demo
 
 RUN useradd --system --no-create-home app
 USER app
 ENV PATH="/app/.venv/bin:$PATH" PYTHONPATH=/app
 
-CMD ["python", "-m", "shiftmate.app"]
+CMD ["python", "-m", "recall_demo.app"]

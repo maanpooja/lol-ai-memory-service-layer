@@ -1,5 +1,0 @@
-title: ShiftMate runtime
-description: Least privilege for the ShiftMate Cloud Run service. Only Gemini generateContent; memory goes through memory-mcp with the user's token.
-stage: GA
-includedPermissions:
-- aiplatform.endpoints.predict

@@ -5,3 +5,6 @@ __pycache__/
 .pytest_cache/
 .adk/
 .ruff_cache/
+# Submission decks contain demo passwords: never publish them.
+docs/*.pptx
+docs/*.pdf

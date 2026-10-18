@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Recall Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@auth0/auth0-spa-js@2.1.3/dist/auth0-spa-js.production.js"></script>
+<style>
+  :root {
+    --bg: #f4f5f7; --panel: #ffffff; --ink: #1d2330; --muted: #5d6677; --line: #dde1e8;
+    --brand: #6c3df4; --brand-ink: #ffffff; --accent: #f9ab00; --user-ink: #ffffff;
+    --ok: #2f7d4f; --warn: #a15c00; --chip: #eef1f5;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12151b; --panel: #1b2029; --ink: #e7eaf0; --muted: #9aa3b2; --line: #2c3340;
+      --brand: #8f6bff; --ok: #5cc28a; --warn: #f0a648; --chip: #252c38;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--ink); }
+  header { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .mark { width: 42px; height: 42px; flex: none; }
+  .wordmark { font-family: "Plus Jakarta Sans", system-ui, sans-serif; font-weight: 800; letter-spacing: -0.03em; line-height: 1;
+    background: linear-gradient(100deg, #6c3df4 0%, #3b6cf6 55%, #12a5e0 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  header .wordmark { font-size: 30px; }
+  header p { margin: 3px 0 0; color: var(--muted); font-size: 13px; font-family: "Plus Jakarta Sans", system-ui, sans-serif; font-weight: 500; }
+  .hero { display: flex; align-items: center; gap: 16px; margin-bottom: 14px; }
+  .hero .mark { width: 64px; height: 64px; }
+  .hero .wordmark { font-size: 56px; }
+  .hero p { margin: 4px 0 0; font-family: "Plus Jakarta Sans", system-ui, sans-serif; font-weight: 700; font-size: 17px; color: var(--muted); }
+  header .spacer { flex: 1; }
+  button { font: inherit; border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 8px; padding: 7px 12px; cursor: pointer; }
+  button.primary { background: var(--brand); color: var(--brand-ink); border-color: var(--brand); font-weight: 600; }
+  button:disabled { opacity: .5; cursor: default; }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 14px 16px; }
+  .apps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }
+  .app { text-align: left; padding: 10px 12px; border-radius: 12px; border: 2px solid var(--line); background: var(--panel); }
+  .app .n { font-weight: 700; } .app .i { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+  .app .t { font-size: 13px; color: var(--muted); }
+  .app.on { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
+  main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 14px; height: calc(100vh - 210px); min-height: 420px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; display: flex; flex-direction: column; min-height: 0; }
+  .card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0; padding: 12px 14px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  #messages { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+  .msg { max-width: 85%; padding: 9px 12px; border-radius: 12px; white-space: pre-wrap; word-wrap: break-word; }
+  .msg.user { align-self: flex-end; background: var(--accent); color: var(--user-ink); border-bottom-right-radius: 4px; }
+  .msg.bot { align-self: flex-start; background: var(--chip); border-bottom-left-radius: 4px; }
+  .msg.note { align-self: center; color: var(--muted); font-size: 13px; background: none; text-align: center; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 14px 0; }
+  .chip { background: var(--chip); border: 1px solid var(--line); border-radius: 999px; padding: 5px 10px; font-size: 13px; }
+  form { display: flex; gap: 8px; padding: 12px 14px; }
+  textarea { flex: 1; resize: none; font: inherit; padding: 9px 11px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); height: 44px; }
+  #send { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  #activity { flex: 1; overflow-y: auto; padding: 10px 14px; font-size: 13px; }
+  .turn { border-left: 3px solid var(--line); padding: 2px 0 2px 10px; margin-bottom: 12px; }
+  .turn .t { color: var(--muted); font-size: 12px; }
+  .tool { margin: 4px 0; } .tool b { font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
+  .tool.add b { color: var(--ok); } .tool .warn { color: var(--warn); }
+  #landing { max-width: 760px; margin: 40px auto; padding: 0 16px; }
+  #landing .card { padding: 24px; }
+  #landing h2 { border: 0; padding: 0 0 8px; font-size: 24px; text-transform: none; letter-spacing: 0; color: var(--ink); }
+  #landing li { margin: 6px 0; }
+  .ex { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 14px 0; }
+  .ex div { background: var(--chip); border-radius: 10px; padding: 10px; font-size: 13px; }
+  .muted { color: var(--muted); font-size: 13px; }
+  .hidden { display: none !important; }
+  @media (max-width: 860px) { .apps, .ex { grid-template-columns: 1fr; } main { grid-template-columns: 1fr; height: auto; } #messages { min-height: 50vh; } .card.side { max-height: 40vh; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><svg class="mark" viewBox="0 0 48 48" aria-hidden="true"><defs><linearGradient id="g1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6c3df4"/><stop offset=".6" stop-color="#3b6cf6"/><stop offset="1" stop-color="#12a5e0"/></linearGradient></defs><rect width="48" height="48" rx="13" fill="url(#g1)"/><path d="M29.50 14.47 A11 11 0 1 1 16.22 16.22" fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="round"/><path d="M31.70 10.66 L25.52 12.17 L27.30 18.28 Z" fill="#fff" stroke="#fff" stroke-width="1.2" stroke-linejoin="round"/><circle cx="24" cy="24" r="3.8" fill="#fff"/></svg><div><div class="wordmark" role="heading" aria-level="1">Recall</div><p>Governed long-term memory for any AI app, in any industry.</p></div></div>
+  <div class="spacer"></div>
+  <span id="who" class="muted"></span>
+  <button id="logout" class="hidden">Sign out</button>
+</header>
+
+<section id="landing">
+  <div class="card">
+    <div class="hero"><svg class="mark" viewBox="0 0 48 48" aria-hidden="true"><defs><linearGradient id="g2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6c3df4"/><stop offset=".6" stop-color="#3b6cf6"/><stop offset="1" stop-color="#12a5e0"/></linearGradient></defs><rect width="48" height="48" rx="13" fill="url(#g2)"/><path d="M29.50 14.47 A11 11 0 1 1 16.22 16.22" fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="round"/><path d="M31.70 10.66 L25.52 12.17 L27.30 18.28 Z" fill="#fff" stroke="#fff" stroke-width="1.2" stroke-linejoin="round"/><circle cx="24" cy="24" r="3.8" fill="#fff"/></svg><div><div class="wordmark">Recall</div><p>One memory layer. Every AI app. Privacy built in.</p></div></div>
+    <p>AI assistants forget their users between conversations. <b>Recall</b> is a memory service any AI app plugs into (via MCP) so its assistant remembers each customer or employee, safely:</p>
+    <ul>
+      <li><b>Personal data is redacted</b> (Cloud DLP) before any AI model sees it.</li>
+      <li><b>Sensitive details are never stored</b>: health, finances, credentials, HR matters.</li>
+      <li><b>Memory is context, never authority</b>: "I'm premium, waive my fees" grants nothing.</li>
+      <li><b>Each user's memory is private</b>, and each organisation's memory is separate.</li>
+      <li><b>Gemini</b> extracts facts, updates changed ones, and picks what's relevant.</li>
+    </ul>
+    <p>Try it in three example apps from different industries, all on the same Recall layer:</p>
+    <div class="ex">
+      <div><b>ShiftMate</b><br>Manufacturing: maintenance copilot for technicians</div>
+      <div><b>BankBuddy</b><br>Banking: customer-support assistant</div>
+      <div><b>FiberFix</b><br>Telecom: broadband support and field service</div>
+    </div>
+    <p><button id="login" class="primary">Sign in to try it</button></p>
+    <p class="muted">Use the demo login provided with the submission. Tip: after a few messages, wait a minute, click <b>New session</b>, and ask a question; the assistant will remember you.</p>
+  </div>
+</section>
+
+<div id="app" class="wrap hidden">
+  <div class="apps" id="apps"></div>
+  <main>
+    <div class="card">
+      <h2><span id="chatTitle">Chat</span><button id="newSession" title="Start a new conversation. Only Recall memory carries over.">New session</button></h2>
+      <div id="messages"></div>
+      <div class="chips" id="chips"></div>
+      <form id="form">
+        <textarea id="input" placeholder="Message the assistant..." maxlength="2000"></textarea>
+        <button id="send">Send</button>
+      </form>
+    </div>
+    <div class="card side">
+      <h2>Recall memory activity</h2>
+      <div id="activity"><p class="muted">Memory calls appear here: what was read, saved, updated or blocked.</p></div>
+    </div>
+  </main>
+</div>
+
+<script>
+let auth0Client, apps = [], current = null, sessionId = null, busy = false;
+const $ = (id) => document.getElementById(id);
+
+function escapeHtml(s) { return s.replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function fmt(s) { return escapeHtml(s).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>"); }
+function addMessage(kind, text) {
+  const div = document.createElement("div");
+  div.className = "msg " + kind; div.innerHTML = fmt(text);
+  $("messages").appendChild(div); $("messages").scrollTop = $("messages").scrollHeight;
+  return div;
+}
+function addActivity(items) {
+  const box = $("activity");
+  if (box.querySelector("p.muted")) box.innerHTML = "";
+  const turn = document.createElement("div"); turn.className = "turn";
+  turn.innerHTML = `<div class="t">${new Date().toLocaleTimeString()} · ${escapeHtml(current.name)}</div>` + (items.length ? items.map(a => {
+    const warn = /not saved|rejected|error/.test(a.summary);
+    return `<div class="tool ${a.tool === "add_memory" ? "add" : ""}"><b>${escapeHtml(a.tool)}</b> <span class="${warn ? "warn" : ""}">${escapeHtml(a.summary)}</span></div>`;
+  }).join("") : `<div class="muted">no memory calls</div>`);
+  box.prepend(turn);
+}
+function setSession(id) { sessionId = id; $("chatTitle").textContent = `${current.name} · ${id ? "session " + id.slice(0, 8) : "new session"}`; }
+
+function selectApp(app) {
+  current = app;
+  document.documentElement.style.setProperty("--accent", "#" + app.accent);
+  document.querySelectorAll(".app").forEach(b => b.classList.toggle("on", b.dataset.key === app.key));
+  $("messages").innerHTML = ""; $("chips").innerHTML = "";
+  setSession(null);
+  addMessage("note", `${app.name} (${app.industry}): ${app.tagline}\nEach app is a separate organisation with its own Recall memory. Try the demo prompts below.`);
+  app.prompts.forEach(([label, text]) => {
+    const b = document.createElement("button"); b.className = "chip"; b.textContent = label; b.title = text;
+    b.onclick = () => send(text); $("chips").appendChild(b);
+  });
+  $("input").placeholder = `Message ${app.name}...`;
+}
+
+async function send(text) {
+  if (busy || !text.trim()) return;
+  busy = true; $("send").disabled = true;
+  addMessage("user", text);
+  const pending = addMessage("bot", "Thinking…");
+  try {
+    let token;
+    try { token = await auth0Client.getTokenSilently(); }
+    catch (e) { pending.textContent = "Your sign-in expired. Redirecting to sign in…"; await auth0Client.loginWithRedirect(); return; }
+    const res = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+      body: JSON.stringify({ app: current.key, message: text, session_id: sessionId }),
+    });
+    const data = await res.json();
+    if (!res.ok) { pending.textContent = data.error || "Something went wrong."; if (res.status === 401) await auth0Client.loginWithRedirect(); return; }
+    setSession(data.session_id);
+    pending.innerHTML = fmt(data.reply);
+    addActivity(data.activity);
+  } catch (e) {
+    pending.textContent = "Couldn't reach the assistant. Please try again.";
+  } finally {
+    busy = false; $("send").disabled = false; $("input").focus();
+  }
+}
+
+async function start() {
+  const config = await (await fetch("/config")).json();
+  apps = config.apps;
+  auth0Client = await auth0.createAuth0Client({
+    domain: config.domain, clientId: config.clientId, cacheLocation: "localstorage",
+    authorizationParams: { audience: config.audience, redirect_uri: window.location.origin, scope: "openid profile email" },
+  });
+  if (location.search.includes("code=") && location.search.includes("state=")) {
+    await auth0Client.handleRedirectCallback();
+    history.replaceState({}, document.title, "/");
+  }
+  if (!(await auth0Client.isAuthenticated())) { $("login").onclick = () => auth0Client.loginWithRedirect(); return; }
+  const user = await auth0Client.getUser();
+  $("who").textContent = user && user.email ? user.email : "";
+  $("landing").classList.add("hidden"); $("app").classList.remove("hidden"); $("logout").classList.remove("hidden");
+  $("logout").onclick = () => auth0Client.logout({ logoutParams: { returnTo: window.location.origin } });
+  apps.forEach(app => {
+    const b = document.createElement("button"); b.className = "app"; b.dataset.key = app.key;
+    b.style.setProperty("--accent", "#" + app.accent);
+    b.innerHTML = `<div class="i">${escapeHtml(app.industry)}</div><div class="n">${escapeHtml(app.name)}</div><div class="t">${escapeHtml(app.tagline)}</div>`;
+    b.onclick = () => { if (!busy) selectApp(app); };
+    $("apps").appendChild(b);
+  });
+  selectApp(apps[0]);
+  $("newSession").onclick = () => { setSession(null); $("messages").innerHTML = ""; addMessage("note", "New session: empty chat history. Only Recall memory carries over."); };
+  $("form").onsubmit = (e) => { e.preventDefault(); const t = $("input").value; $("input").value = ""; send(t); };
+  $("input").onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("form").requestSubmit(); } };
+}
+start().catch(() => { document.body.insertAdjacentHTML("beforeend", '<p class="muted" style="text-align:center">Could not start sign-in. Please reload.</p>'); });
+</script>
+</body>
+</html>

@@ -7,6 +7,9 @@
 #   deploy/deploy.sh role      create/update the custom runtime role
 #   deploy/deploy.sh sa        create the runtime service account and bind its roles
 #   deploy/deploy.sh deploy    build from source and deploy the Cloud Run service
+#   deploy/deploy.sh tenant NAME TENANT_ID
+#                              deploy the SAME image as another organisation's memory
+#                              service (e.g. memory-mcp-bank bank-demo); no rebuild
 #   deploy/deploy.sh audit     create the BigQuery dataset and the log sink
 #   deploy/deploy.sh url       print the service URL
 #
@@ -52,25 +55,42 @@ sa() {
   done
 }
 
+env_vars() {  # env_vars TENANT_ID SERVER_URL
+  echo "^@^PROJECT_ID=${PROJECT_ID}@DE_LOCATION=${DE_LOCATION:-global}@DATA_STORE_ID=${DATA_STORE_ID:-memories}@ENGINE_ID=${ENGINE_ID:-memories-app}@GEMINI_MODEL=${GEMINI_MODEL:-gemini-3.5-flash}@GEMINI_LOCATION=${GEMINI_LOCATION:-global}@GEMINI_THINKING_LEVEL=${GEMINI_THINKING_LEVEL:-MINIMAL}@DLP_LOCATION=${DLP_LOCATION:-global}@AUTH_MODE=oidc@OIDC_ISSUER=${OIDC_ISSUER}@OIDC_AUDIENCE=${OIDC_AUDIENCE}@TENANT_ID=$1@SERVER_URL=$2"
+}
+
+# The app does its own OIDC bearer auth (Auth0 tokens), so Cloud Run IAM must let
+# requests through; /mcp still answers 401 without a valid token.
+RUN_FLAGS=(--service-account "$SA_EMAIL" --allow-unauthenticated --cpu 1 --memory 512Mi
+  --min-instances 0 --max-instances "${MAX_INSTANCES:-3}" --timeout 120 --quiet)
+
 deploy() {
   local server_url
   server_url="${SERVER_URL:-$(url 2>/dev/null || true)}"
-  # The app does its own OIDC bearer auth (Auth0 tokens), so Cloud Run IAM must let
-  # requests through; /mcp still answers 401 without a valid token.
-  gcloud run deploy "$SERVICE" --project "$PROJECT_ID" --region "$REGION" --source . --quiet \
-    --service-account "$SA_EMAIL" --allow-unauthenticated \
-    --cpu 1 --memory 512Mi --min-instances 0 --max-instances "${MAX_INSTANCES:-3}" --timeout 120 \
-    --set-env-vars "^@^PROJECT_ID=${PROJECT_ID}@DE_LOCATION=${DE_LOCATION:-global}@DATA_STORE_ID=${DATA_STORE_ID:-memories}@ENGINE_ID=${ENGINE_ID:-memories-app}@GEMINI_MODEL=${GEMINI_MODEL:-gemini-3.5-flash}@GEMINI_LOCATION=${GEMINI_LOCATION:-global}@GEMINI_THINKING_LEVEL=${GEMINI_THINKING_LEVEL:-MINIMAL}@DLP_LOCATION=${DLP_LOCATION:-global}@AUTH_MODE=oidc@OIDC_ISSUER=${OIDC_ISSUER}@OIDC_AUDIENCE=${OIDC_AUDIENCE}@TENANT_ID=${TENANT_ID}@SERVER_URL=${server_url}"
+  gcloud run deploy "$SERVICE" --project "$PROJECT_ID" --region "$REGION" --source . "${RUN_FLAGS[@]}" \
+    --set-env-vars "$(env_vars "$TENANT_ID" "$server_url")"
+}
+
+tenant() {
+  local name="${1:?usage: deploy/deploy.sh tenant NAME TENANT_ID}" tenant_id="${2:?usage: deploy/deploy.sh tenant NAME TENANT_ID}"
+  local image number
+  image="$(gcloud run services describe "$SERVICE" --project "$PROJECT_ID" --region "$REGION" --format 'value(spec.template.spec.containers[0].image)')"
+  number="$(gcloud projects describe "$PROJECT_ID" --format 'value(projectNumber)')"
+  gcloud run deploy "$name" --project "$PROJECT_ID" --region "$REGION" --image "$image" "${RUN_FLAGS[@]}" \
+    --set-env-vars "$(env_vars "$tenant_id" "https://${name}-${number}.${REGION}.run.app")"
 }
 
 audit() {
   bq --project_id "$PROJECT_ID" show "$DATASET" >/dev/null 2>&1 ||
     bq --project_id "$PROJECT_ID" mk --dataset --location "${BQ_LOCATION:-US}" \
       --description "memory-mcp audit lines (ids and counters only, no content)" "$DATASET"
-  local filter="resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"${SERVICE}\" AND jsonPayload.event=\"tool_call\""
+  # Every memory service (memory-mcp, memory-mcp-bank, ...) feeds the same audit dataset.
+  local filter="resource.type=\"cloud_run_revision\" AND resource.labels.service_name=~\"^${SERVICE}\" AND jsonPayload.event=\"tool_call\""
   if ! gcloud logging sinks describe "$SINK" --project "$PROJECT_ID" >/dev/null 2>&1; then
     gcloud logging sinks create "$SINK" "bigquery.googleapis.com/projects/${PROJECT_ID}/datasets/${DATASET}" \
       --project "$PROJECT_ID" --log-filter "$filter" --use-partitioned-tables
+  else
+    gcloud logging sinks update "$SINK" --project "$PROJECT_ID" --log-filter "$filter" --quiet
   fi
   local writer
   writer="$(gcloud logging sinks describe "$SINK" --project "$PROJECT_ID" --format 'value(writerIdentity)')"
@@ -88,4 +108,5 @@ url() {
   gcloud run services describe "$SERVICE" --project "$PROJECT_ID" --region "$REGION" --format 'value(status.url)'
 }
 
-"${1:?usage: deploy/deploy.sh apis|role|sa|deploy|audit|url}"
+cmd="${1:?usage: deploy/deploy.sh apis|role|sa|deploy|tenant|audit|url}"; shift
+"$cmd" "$@"

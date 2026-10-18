@@ -1,0 +1,5 @@
+title: Recall demo runtime
+description: Least privilege for the Recall demo web app. Only Gemini generateContent; memory goes through the Recall memory services with the user's own token.
+stage: GA
+includedPermissions:
+- aiplatform.endpoints.predict

@@ -1,5 +1,0 @@
-# Builds shiftmate/Dockerfile from the repo root and pushes it to Artifact Registry.
-steps:
-  - name: gcr.io/cloud-builders/docker
-    args: ["build", "-f", "shiftmate/Dockerfile", "-t", "${_IMAGE}", "."]
-images: ["${_IMAGE}"]
