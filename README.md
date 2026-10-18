@@ -28,6 +28,7 @@ copilot), **BankBuddy** (bank customer support) and **FiberFix** (telecom field 
 | | |
 | --- | --- |
 | **Live prototype** | https://recall-demo-140715294513.us-central1.run.app |
+| **Demo video (3 min)** | https://drive.google.com/file/d/18Uz3oLStRcd2wAYMqjxrgFGdYR2vd-xx/view?usp=sharing |
 | **Logins** | `tech1@demo.test` and `tech2@demo.test` (passwords are in the submission) |
 
 1. Sign in, pick **BankBuddy**, and click the demo prompts **1, 2, 3**. Watch the
